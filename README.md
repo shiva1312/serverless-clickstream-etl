@@ -25,7 +25,8 @@ GROUP BY event_type
 LIMIT 10;
 ```
 
-##AI Tooling Disclosure
+## AI Tooling Disclosure
+
 ChatGPT was used to:
 
 Debug AWS Glue job errors
