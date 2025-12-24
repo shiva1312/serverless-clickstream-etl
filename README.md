@@ -1,63 +1,227 @@
 
+
 # Serverless Clickstream ETL Pipeline
 
-This project implements a serverless data engineering pipeline on AWS that ingests JSON clickstream data, transforms it into Parquet format, and enables analytics using Amazon Athena.
+## Overview
 
-## Architecture Overview
-- Amazon Kinesis Data Firehose ingests clickstream events
-- Raw JSON data is stored in Amazon S3
-- AWS Glue ETL job transforms JSON → Parquet and removes sensitive fields
-- AWS Glue Crawler catalogs the processed data
-- Amazon Athena queries the transformed data
+This project implements a **serverless clickstream data pipeline on AWS** using Infrastructure as Code (Terraform) and AWS managed services.
+Raw JSON clickstream events are ingested, transformed, and stored as **partitioned Parquet data** for efficient analytics using Amazon Athena.
 
-## Folder Structure
-- `iac/` – Terraform Infrastructure as Code
-- `glue/` – AWS Glue ETL transformation scripts
+The solution follows **AWS best practices** for:
 
-## Athena Sample Queries
+* Least-privilege IAM
+* Idempotent ETL processing
+* Schema enforcement
+* Partitioned S3 storage
+* Logging and monitoring
+* Environment-based configuration (no hard-coded values)
+
+---
+
+## Architecture
+
+### Data Flow
+
+1. **Amazon Kinesis Data Firehose**
+
+   * Ingests clickstream JSON events
+
+2. **Amazon S3 (Raw Zone)**
+
+   * Stores raw clickstream data
+
+3. **AWS Glue ETL Job**
+
+   * Reads raw JSON data
+   * Enforces schema
+   * Removes sensitive fields
+   * Converts data to Parquet
+   * Writes partitioned output
+   * Uses job bookmarks
+   * Logs metrics and errors
+
+4. **Amazon S3 (Processed Zone)**
+
+   * Stores partitioned Parquet data
+
+5. **AWS Glue Crawler**
+
+   * Catalogs processed data
+
+6. **Amazon Athena**
+
+   * Queries transformed data
+
+---
+
+## S3 Data Layout (Partitioned)
+
+Processed data is written using Hive-style partitions:
+
+```text
+s3://clickstream-processed-<env>/
+  └── year=YYYY/
+      └── month=MM/
+          └── day=DD/
+              └── part-*.parquet
+```
+
+Partitioning improves query performance and reduces Athena costs.
+
+---
+
+## Project Structure
+
+```text
+serverless-clickstream-etl/
+│
+├── iac/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   ├── s3.tf
+│   ├── firehose.tf
+│   ├── glue.tf
+│   ├── iam.tf
+│   └── athena.tf
+│
+├── glue/
+│   └── transform_json_to_parquet.py
+│
+├── README.md
+```
+
+---
+
+## Infrastructure as Code (Terraform)
+
+All AWS resources are provisioned using **Terraform**.
+
+### Resources Created
+
+* Amazon S3 buckets
+
+  * Raw data bucket
+  * Processed (Parquet) bucket
+  * Glue scripts bucket
+* IAM Role with **least-privilege policies**
+* Kinesis Data Firehose
+* AWS Glue ETL Job
+* AWS Glue Crawler
+* Athena Database
+
+---
+
+## Glue ETL Job Design
+
+### Key Features Implemented
+
+✔ **No hard-coded values**
+All S3 buckets are passed as Glue job arguments.
+
+✔ **Explicit schema control**
+Schema is defined using Spark `StructType`.
+
+✔ **Job lifecycle management**
+`Job.init()` and `Job.commit()` implemented.
+
+✔ **Job bookmarks enabled**
+Ensures idempotent processing.
+
+✔ **Partitioned output**
+Data written using `year`, `month`, `day`.
+
+✔ **Sensitive data handling**
+Removes `ip_address` and `user_agent`.
+
+✔ **Logging & error handling**
+Integrated with CloudWatch Logs.
+
+---
+
+## Sample Athena Queries
 
 ```sql
-SELECT COUNT(*) FROM clickstream_table;
+-- Total events
+SELECT COUNT(*) 
+FROM clickstream_table;
 
+-- Event frequency
 SELECT event_type, COUNT(*) 
 FROM clickstream_table
 GROUP BY event_type
-LIMIT 10;
+ORDER BY COUNT(*) DESC;
+
+-- Daily event volume
+SELECT year, month, day, COUNT(*) 
+FROM clickstream_table
+GROUP BY year, month, day
+ORDER BY year, month, day;
 ```
+
+---
+
+## Deployment Steps
+
+### Prerequisites
+
+* AWS CLI configured
+* Terraform installed
+* Valid AWS credentials
+
+### Deploy Infrastructure
+
+```bash
+cd iac
+terraform init
+terraform apply
+```
+
+### Upload Glue Script
+
+```bash
+aws s3 cp glue/transform_json_to_parquet.py \
+  s3://<glue-scripts-bucket>/transform_json_to_parquet.py
+```
+
+### Run Glue Job
+
+```bash
+aws glue start-job-run --job-name clickstream-etl
+```
+
+---
+
+## IAM Security Model
+
+* Least-privilege IAM policy
+* Scoped S3 read/write permissions
+* CloudWatch logging access
+* Explicit `iam:PassRole` for Glue
+
+No wildcard permissions (`s3:*`, `glue:*`) are used.
+
+---
 
 ## AI Tooling Disclosure
 
-ChatGPT was used to:
+AI tools (ChatGPT) were used to:
 
-Debug AWS Glue job errors
-Refactor ETL scripts
+* Refactor Glue ETL scripts
+* Improve Terraform IAM policies
+* Debug Glue job execution errors
+* Align implementation with AWS best practices
 
+All outputs were reviewed, tested, and validated.
 
+---
 
-# Infrastructure as Code (Terraform)
+## Outcome
 
-This folder provisions all AWS resources using Terraform.
+This project demonstrates:
 
-## Resources Created
-- S3 buckets (raw & processed)
-- IAM roles and policies
-- Kinesis Data Firehose
-- AWS Glue Job
-- AWS Glue Crawler
-- Athena Database
+* Production-grade AWS ETL architecture
+* Secure, scalable serverless design
+* Strong Terraform and Glue expertise
+* Optimized analytics using Athena
 
-## How to Deploy
-
-```bash
-terraform init
-terraform apply
-Ensure AWS credentials are configured before running.
-
-
-
-#  `iac/provider.tf`
-
-```hcl
-provider "aws" {
-  region = "us-east-1"
-}
