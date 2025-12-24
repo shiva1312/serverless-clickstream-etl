@@ -15,7 +15,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Arguments (NO hardcoding)
 
 args = getResolvedOptions(
     sys.argv,
@@ -61,7 +60,7 @@ try:
         sys.exit(0)
 
     
-    # Transform + partition columns
+    # Transform and partition columns
     
     transformed_df = (
         df.drop("ip_address", "user_agent")
