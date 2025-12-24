@@ -77,8 +77,6 @@ serverless-clickstream-etl/
 │
 ├── iac/
 │   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
 │   ├── s3.tf
 │   ├── firehose.tf
 │   ├── glue.tf
