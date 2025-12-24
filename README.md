@@ -201,16 +201,6 @@ No wildcard permissions (`s3:*`, `glue:*`) are used.
 
 ---
 
-## AI Tooling Disclosure
-
-AI tools (ChatGPT) were used to:
-
-* Refactor Glue ETL scripts
-* Improve Terraform IAM policies
-* Debug Glue job execution errors
-* Align implementation with AWS best practices
-
-All outputs were reviewed, tested, and validated.
 
 ---
 
