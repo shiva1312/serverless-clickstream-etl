@@ -1,24 +1,39 @@
-  GNU nano 8.3                                                                            s3.tf                                                                                       
-resource "random_id" "suffix" {
-  byte_length = 4
-}
+
+# Raw Clickstream Data Bucket
 
 resource "aws_s3_bucket" "raw" {
-  bucket = "clickstream-raw-${random_id.suffix.hex}"
+  bucket        = "clickstream-raw-${var.environment}"
+  force_destroy = true
 
   tags = {
-    Name        = "ClickstreamRaw"
-    Environment = "Dev"
+    Name        = "clickstream-raw"
+    Environment = var.environment
   }
 }
+
+
+# Processed (Parquet) Data Bucket
 
 resource "aws_s3_bucket" "processed" {
-  bucket = "clickstream-processed-${random_id.suffix.hex}"
+  bucket        = "clickstream-processed-${var.environment}"
+  force_destroy = true
 
   tags = {
-    Name        = "ClickstreamProcessed"
-    Environment = "Dev"
+    Name        = "clickstream-processed"
+    Environment = var.environment
   }
 }
 
+
+# Glue Scripts Bucket
+
+resource "aws_s3_bucket" "glue_scripts" {
+  bucket        = "clickstream-glue-scripts-${var.environment}"
+  force_destroy = true
+
+  tags = {
+    Name        = "glue-scripts"
+    Environment = var.environment
+  }
+}
 
