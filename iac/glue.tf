@@ -1,6 +1,12 @@
+########################################
+# AWS Glue Job
+########################################
+
 resource "aws_glue_job" "etl" {
   name     = "clickstream-etl"
   role_arn = aws_iam_role.glue_role.arn
+
+  glue_version = "4.0"
 
   command {
     name            = "glueetl"
@@ -8,8 +14,26 @@ resource "aws_glue_job" "etl" {
     python_version  = "3"
   }
 
-  glue_version = "4.0"
+  # Recommended job settings for reliability / idempotency / observability
+  default_arguments = {
+    "--job-bookmark-option"                = "job-bookmark-enable"
+    "--enable-continuous-cloudwatch-log"   = "true"
+    "--enable-metrics"                     = "true"
+    "--enable-spark-ui"                    = "true"
+
+    # Glue temp directory (must exist in S3)
+    "--TempDir"                            = "s3://${aws_s3_bucket.processed.bucket}/_glue_temp/"
+
+    # Parameters you will read in the Glue script (no hardcoding)
+    "--SOURCE_S3"                          = "s3://${aws_s3_bucket.raw.bucket}/"
+    "--TARGET_S3"                          = "s3://${aws_s3_bucket.processed.bucket}/"
+    "--DATABASE_NAME"                      = "clickstream_db"
+  }
 }
+
+########################################
+# AWS Glue Crawler
+########################################
 
 resource "aws_glue_crawler" "crawler" {
   name          = "clickstream-crawler"
@@ -17,7 +41,6 @@ resource "aws_glue_crawler" "crawler" {
   database_name = "clickstream_db"
 
   s3_target {
-    path = "s3://${aws_s3_bucket.processed.bucket}"
+    path = "s3://${aws_s3_bucket.processed.bucket}/"
   }
 }
-
