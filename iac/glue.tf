@@ -15,7 +15,7 @@ resource "aws_glue_job" "etl" {
     python_version  = "3"
   }
 
-  # Recommended job settings for reliability / idempotency / observability
+  # job settings for reliability / idempotency / observability
   default_arguments = {
     "--job-bookmark-option"              = "job-bookmark-enable"
     "--enable-continuous-cloudwatch-log" = "true"
