@@ -1,9 +1,6 @@
 ########################################
-# IAM Role for Kinesis Data Firehose
+# Kinesis Data Firehose (IAM + Stream)
 ########################################
-
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
 
 resource "aws_iam_role" "firehose_role" {
   name = "firehose-role"
@@ -29,7 +26,6 @@ resource "aws_iam_policy" "firehose_s3_least_privilege" {
     Version = "2012-10-17",
     Statement = [
 
-      # Allow Firehose to write objects into the raw bucket (object-level)
       {
         Effect = "Allow",
         Action = [
@@ -46,7 +42,6 @@ resource "aws_iam_policy" "firehose_s3_least_privilege" {
         ]
       },
 
-      # CloudWatch Logs for delivery errors (scoped)
       {
         Effect = "Allow",
         Action = [
@@ -80,13 +75,11 @@ resource "aws_kinesis_firehose_delivery_stream" "clickstream" {
     role_arn   = aws_iam_role.firehose_role.arn
     bucket_arn = aws_s3_bucket.raw.arn
 
-    # REQUIRED: Partition raw data by date
-    # Firehose replaces these with timestamps at delivery time.
     prefix              = "clickstream/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
     error_output_prefix = "clickstream-errors/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
 
-    buffering_size     = 64   # MB
-    buffering_interval = 60   # seconds
+    buffering_size     = 64
+    buffering_interval = 60
 
     compression_format = "UNCOMPRESSED"
   }
