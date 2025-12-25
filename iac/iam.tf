@@ -23,7 +23,7 @@ resource "aws_iam_role" "glue_role" {
 ########################################
 
 resource "aws_iam_policy" "glue_least_privilege" {
-  name = "GlueLeastPrivilegePolicy"
+  name = "GlueLeastPrivilegePolicy-${var.environment}-${data.aws_caller_identity.current.account_id}"
 
   policy = jsonencode({
     Version = "2012-10-17",
