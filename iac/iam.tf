@@ -16,10 +16,7 @@ resource "aws_iam_role" "glue_role" {
 }
 
 ########################################
-# Least-Privilege Glue Policy
-########################################
-# Fix: add ListBucket on glue_scripts bucket AND allow GetObject on the exact script key
-# This resolves: "not authorized to perform s3:ListBucket" when Glue downloads the script
+# Least-Privilege Glue Policy (FINAL)
 ########################################
 
 resource "aws_iam_policy" "glue_least_privilege" {
@@ -30,7 +27,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
     Statement = [
 
       ########################################
-      # Glue job permissions (scoped)
+      # Glue job control (scoped to one job)
       ########################################
       {
         Effect = "Allow",
@@ -45,8 +42,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
 
       ########################################
       # Glue crawler + catalog permissions
-      # Glue resources are not always easily ARN-scopable,
-      # so these remain at "*" but actions are tightly limited.
+      # Resource "*" required due to Glue ARN limitations
       ########################################
       {
         Effect = "Allow",
@@ -58,6 +54,8 @@ resource "aws_iam_policy" "glue_least_privilege" {
           "glue:GetDatabases",
           "glue:GetTable",
           "glue:GetTables",
+          "glue:GetPartition",
+          "glue:GetPartitions",
           "glue:CreateTable",
           "glue:UpdateTable"
         ],
@@ -89,7 +87,6 @@ resource "aws_iam_policy" "glue_least_privilege" {
 
       ########################################
       # Glue scripts bucket (bucket-level)
-      # Required for Glue to locate/download script from S3.
       ########################################
       {
         Effect = "Allow",
@@ -101,8 +98,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
       },
 
       ########################################
-      # Glue script object access (object-level)
-      # Allow exact script path + any future scripts under the bucket.
+      # Glue script object access
       ########################################
       {
         Effect = "Allow",
@@ -128,7 +124,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
       },
 
       ########################################
-      # Write processed objects (object-level)
+      # Write processed objects
       ########################################
       {
         Effect = "Allow",
@@ -140,7 +136,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
       },
 
       ########################################
-      # CloudWatch logs (scoped)
+      # CloudWatch logs (scoped to Glue)
       ########################################
       {
         Effect = "Allow",
@@ -156,7 +152,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
       },
 
       ########################################
-      # PassRole required by Glue
+      # PassRole (Glue requirement)
       ########################################
       {
         Effect   = "Allow",
