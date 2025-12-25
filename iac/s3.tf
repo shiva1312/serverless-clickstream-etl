@@ -2,9 +2,6 @@
 # Helpers for globally-unique bucket names
 ########################################
 
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
 locals {
   bucket_suffix = "${var.environment}-${data.aws_region.current.name}-${data.aws_caller_identity.current.account_id}"
 }
@@ -52,7 +49,7 @@ resource "aws_s3_bucket" "glue_scripts" {
 }
 
 ########################################
-# Security Defaults 
+# Security Defaults
 ########################################
 
 # Block public access on all buckets
