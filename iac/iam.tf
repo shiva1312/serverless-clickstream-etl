@@ -2,9 +2,6 @@
 # IAM Role for AWS Glue (Job + Crawler)
 ########################################
 
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
 resource "aws_iam_role" "glue_role" {
   name = "glue-etl-role"
 
@@ -41,9 +38,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         Resource = aws_glue_job.etl.arn
       },
 
-      # Glue crawler + catalog permissions (minimal set)
-      # Catalog resources can be tricky to scope tightly in small take-homes;
-      # this is still far tighter than glue:*.
+      # Glue crawler + catalog permissions (minimal)
       {
         Effect = "Allow",
         Action = [
@@ -60,7 +55,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         Resource = "*"
       },
 
-      # Read raw bucket (bucket-level)
+      # Read raw + scripts buckets (bucket-level)
       {
         Effect = "Allow",
         Action = [
@@ -73,7 +68,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         ]
       },
 
-      # Read raw + scripts (object-level)
+      # Read raw + scripts objects (object-level)
       {
         Effect = "Allow",
         Action = [
@@ -85,7 +80,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         ]
       },
 
-      # Write processed bucket (bucket-level)
+      # Processed bucket (bucket-level)
       {
         Effect = "Allow",
         Action = [
@@ -97,7 +92,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         ]
       },
 
-      # Write processed data (object-level)
+      # Write processed objects (object-level)
       {
         Effect = "Allow",
         Action = [
@@ -109,7 +104,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         ]
       },
 
-      # CloudWatch logging (scoped to Glue log groups in this account/region)
+      # CloudWatch logs (scoped to Glue log groups)
       {
         Effect = "Allow",
         Action = [
@@ -123,7 +118,7 @@ resource "aws_iam_policy" "glue_least_privilege" {
         ]
       },
 
-      # Allow passing the Glue role (needed by Glue service/job execution)
+      # Allow passing the Glue role
       {
         Effect   = "Allow",
         Action   = "iam:PassRole",
@@ -132,10 +127,6 @@ resource "aws_iam_policy" "glue_least_privilege" {
     ]
   })
 }
-
-########################################
-# Attach policy to Glue role
-########################################
 
 resource "aws_iam_role_policy_attachment" "glue_attach" {
   role       = aws_iam_role.glue_role.name
