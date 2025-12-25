@@ -117,13 +117,15 @@ resource "aws_s3_bucket_versioning" "glue_scripts" {
   }
 }
 
-# Optional: lifecycle to control cost on raw data (adjust as needed)
+# Optional: lifecycle to control cost on raw data 
 resource "aws_s3_bucket_lifecycle_configuration" "raw" {
   bucket = aws_s3_bucket.raw.id
 
   rule {
     id     = "expire-raw-after-30-days"
     status = "Enabled"
+
+    filter {} # applies to all objects in the bucket
 
     expiration {
       days = 30
