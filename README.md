@@ -91,7 +91,7 @@ All AWS resources are provisioned using **Terraform**.
 
 ### Key Features Implemented
 
-✔ **No hard-coded values**
+
 All S3 buckets are passed as Glue job arguments.
 
 ✔ **Explicit schema control**
