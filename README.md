@@ -3,67 +3,40 @@
 # Serverless Clickstream ETL Pipeline
 
 ## Overview
+This project implements a **serverless clickstream data pipeline on AWS** using **Terraform** and managed AWS services.  
+Raw JSON clickstream events are ingested, transformed, and stored as **partitioned Parquet data**, enabling efficient analytics with **Amazon Athena**.
 
-This project implements a **serverless clickstream data pipeline on AWS** using Infrastructure as Code (Terraform) and AWS managed services.
-Raw JSON clickstream events are ingested, transformed, and stored as **partitioned Parquet data** for efficient analytics using Amazon Athena.
-
-The solution follows **AWS best practices** for:
-
-* Least-privilege IAM
-* Idempotent ETL processing
-* Schema enforcement
-* Partitioned S3 storage
-* Logging and monitoring
-* Environment-based configuration (no hard-coded values)
+The solution follows AWS best practices:
+- Least-privilege IAM
+- Idempotent ETL (Glue job bookmarks)
+- Schema enforcement
+- Partitioned S3 storage
+- Logging and monitoring
+- No hard-coded environment values
 
 ---
 
-## Architecture
+## Architecture (High Level)
 
-### Data Flow
-
-1. **Amazon Kinesis Data Firehose**
-
-   * Ingests clickstream JSON events
-
-2. **Amazon S3 (Raw Zone)**
-
-   * Stores raw clickstream data
-
-3. **AWS Glue ETL Job**
-
-   * Reads raw JSON data
-   * Enforces schema
-   * Removes sensitive fields
-   * Converts data to Parquet
-   * Writes partitioned output
-   * Uses job bookmarks
-   * Logs metrics and errors
-
-4. **Amazon S3 (Processed Zone)**
-
-   * Stores partitioned Parquet data
-
-5. **AWS Glue Crawler**
-
-   * Catalogs processed data
-
-6. **Amazon Athena**
-
-   * Queries transformed data
+1. **Kinesis Data Firehose** – Ingests JSON clickstream events  
+2. **S3 (Raw Zone)** – Stores raw data partitioned by date  
+3. **AWS Glue ETL Job** – Transforms JSON → Parquet  
+4. **S3 (Processed Zone)** – Stores partitioned Parquet data  
+5. **AWS Glue Crawler** – Catalogs processed data  
+6. **Amazon Athena** – Queries transformed data  
 
 ---
 
-## S3 Data Layout (Partitioned)
+## S3 Data Layout
 
 Processed data is written using Hive-style partitions:
 
 ```text
 s3://clickstream-processed-<env>/
-  └── year=YYYY/
-      └── month=MM/
-          └── day=DD/
-              └── part-*.parquet
+└── year=YYYY/
+    └── month=MM/
+        └── day=DD/
+            └── part-*.parquet
 ```
 
 Partitioning improves query performance and reduces Athena costs.
@@ -76,17 +49,21 @@ Partitioning improves query performance and reduces Athena costs.
 serverless-clickstream-etl/
 │
 ├── iac/
+│   ├── provider.tf
 │   ├── main.tf
+│   ├── data.tf
 │   ├── s3.tf
+│   ├── iam.tf
 │   ├── firehose.tf
 │   ├── glue.tf
-│   ├── iam.tf
-│   └── athena.tf
+│   ├── athena.tf
+│   └── README.md
 │
 ├── glue/
-│   └── transform_json_to_parquet.py
+│   ├── transform_json_to_parquet.py
+│   └── README.md
 │
-├── README.md
+└── README.md
 ```
 
 ---
@@ -185,7 +162,7 @@ aws s3 cp glue/transform_json_to_parquet.py \
 ### Run Glue Job
 
 ```bash
-aws glue start-job-run --job-name clickstream-etl
+aws glue start-job-run --job-name clickstream-etl-<env>
 ```
 
 ---
