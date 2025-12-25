@@ -8,34 +8,50 @@ from pyspark.context import SparkContext
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType
 
+# -------------------------------------------------------------------
+# Logging
+# -------------------------------------------------------------------
 logger = logging.getLogger("clickstream-etl")
 logger.setLevel(logging.INFO)
 
-args = getResolvedOptions(sys.argv, ["JOB_NAME", "SOURCE_S3", "TARGET_S3"])
+# -------------------------------------------------------------------
+# Job arguments (no hardcoding)
+# Glue job must be created with job bookmarks ENABLED
+# -------------------------------------------------------------------
+args = getResolvedOptions(
+    sys.argv,
+    ["JOB_NAME", "SOURCE_S3", "TARGET_S3"]
+)
 
 source_path = args["SOURCE_S3"].rstrip("/") + "/"
 target_path = args["TARGET_S3"].rstrip("/") + "/"
 quarantine_path = f"{target_path}_quarantine/"
 
-sc = SparkContext()
+# -------------------------------------------------------------------
+# Glue / Spark context (Glue-managed SparkContext)
+# -------------------------------------------------------------------
+sc = SparkContext.getOrCreate()
 glue_context = GlueContext(sc)
 spark = glue_context.spark_session
 
 job = Job(glue_context)
 job.init(args["JOB_NAME"], args)
 
+# -------------------------------------------------------------------
+# Utility: lightweight emptiness check (bookmark-friendly)
+# -------------------------------------------------------------------
+def is_empty(df) -> bool:
+    return len(df.take(1)) == 0
 
-def empty(df) -> bool:
-    # cheap-ish emptiness check without a full count on huge data
-    return df.rdd.isEmpty()
-
-
+# -------------------------------------------------------------------
+# ETL
+# -------------------------------------------------------------------
 try:
-    logger.info("clickstream ETL starting")
-    logger.info("reading from %s", source_path)
-    logger.info("writing to %s", target_path)
+    logger.info("Clickstream ETL job started")
+    logger.info("Source path: %s", source_path)
+    logger.info("Target path: %s", target_path)
 
-    # Clickstream JSON is often messy; keep schema simple and parse timestamps ourselves.
+    # Explicit schema for stability
     schema = StructType([
         StructField("event_time", StringType(), True),
         StructField("user_id", StringType(), True),
@@ -45,50 +61,58 @@ try:
         StructField("user_agent", StringType(), True),
     ])
 
-    raw = spark.read.schema(schema).json(source_path)
+    raw_df = spark.read.schema(schema).json(source_path)
 
-    if empty(raw):
-        logger.warning("no new data found; exiting")
+    if is_empty(raw_df):
+        logger.warning("No new data found. Exiting gracefully.")
         job.commit()
         sys.exit(0)
 
-    # Parse timestamp; anything that doesn't parse goes to quarantine.
-    parsed = (
-        raw.withColumn("event_time_ts", F.to_timestamp("event_time"))
-           .withColumn("ingest_ts", F.current_timestamp())
+    parsed_df = (
+        raw_df
+        .withColumn("event_time_ts", F.to_timestamp("event_time"))
+        .withColumn("ingest_ts", F.current_timestamp())
     )
 
-    bad = parsed.filter(F.col("event_time_ts").isNull())
-    good = parsed.filter(F.col("event_time_ts").isNotNull())
+    bad_df = parsed_df.filter(F.col("event_time_ts").isNull())
+    good_df = parsed_df.filter(F.col("event_time_ts").isNotNull())
 
-    bad_count = bad.count()
-    good_count = good.count()
+    # Cache once to avoid repeated scans
+    bad_df.cache()
+    good_df.cache()
 
-    logger.info("good records: %d", good_count)
-    logger.info("bad records: %d", bad_count)
+    logger.info("Good records: %d", good_df.count())
+    logger.info("Bad records: %d", bad_df.count())
 
-    out = (
-        good.drop("ip_address", "user_agent")
-            .drop("event_time")
-            .withColumnRenamed("event_time_ts", "event_time")
-            .withColumn("year", F.year("event_time"))
-            .withColumn("month", F.month("event_time"))
-            .withColumn("day", F.dayofmonth("event_time"))
+    curated_df = (
+        good_df
+        .drop("ip_address", "user_agent", "event_time")
+        .withColumnRenamed("event_time_ts", "event_time")
+        .withColumn("year", F.date_format("event_time", "yyyy"))
+        .withColumn("month", F.date_format("event_time", "MM"))
+        .withColumn("day", F.date_format("event_time", "dd"))
     )
 
-    (out.write
+    (
+        curated_df.write
         .mode("append")
         .partitionBy("year", "month", "day")
-        .parquet(target_path))
+        .parquet(target_path)
+    )
 
-    if bad_count > 0:
-        (bad.withColumn("quarantine_reason", F.lit("invalid_or_missing_event_time"))
-            .write.mode("append").parquet(quarantine_path))
-        logger.warning("wrote bad records to %s", quarantine_path)
+    if not is_empty(bad_df):
+        (
+            bad_df
+            .withColumn("quarantine_reason", F.lit("invalid_or_missing_event_time"))
+            .write
+            .mode("append")
+            .parquet(quarantine_path)
+        )
+        logger.warning("Bad records written to quarantine path: %s", quarantine_path)
 
-    logger.info("clickstream ETL finished ok")
+    logger.info("Clickstream ETL job completed successfully")
     job.commit()
 
 except Exception:
-    logger.exception("clickstream ETL failed")
+    logger.exception("Clickstream ETL job failed")
     raise
