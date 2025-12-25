@@ -3,7 +3,7 @@
 ########################################
 
 resource "aws_iam_role" "firehose_role" {
-  name = "firehose-role"
+  name = "firehose-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -20,18 +20,20 @@ resource "aws_iam_role" "firehose_role" {
 ########################################
 
 resource "aws_iam_policy" "firehose_s3_least_privilege" {
-  name = "FirehoseS3LeastPrivilegePolicy"
+  name = "FirehoseS3LeastPrivilegePolicy-${var.environment}"
 
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
 
+      ########################################
+      # Write-only access to raw bucket
+      ########################################
       {
         Effect = "Allow",
         Action = [
           "s3:AbortMultipartUpload",
           "s3:GetBucketLocation",
-          "s3:GetObject",
           "s3:ListBucket",
           "s3:ListBucketMultipartUploads",
           "s3:PutObject"
@@ -42,6 +44,9 @@ resource "aws_iam_policy" "firehose_s3_least_privilege" {
         ]
       },
 
+      ########################################
+      # CloudWatch Logs
+      ########################################
       {
         Effect = "Allow",
         Action = [
@@ -68,14 +73,15 @@ resource "aws_iam_role_policy_attachment" "firehose_attach" {
 ########################################
 
 resource "aws_kinesis_firehose_delivery_stream" "clickstream" {
-  name        = "clickstream-firehose"
+  name        = "clickstream-firehose-${var.environment}"
   destination = "extended_s3"
 
   extended_s3_configuration {
     role_arn   = aws_iam_role.firehose_role.arn
     bucket_arn = aws_s3_bucket.raw.arn
 
-    prefix              = "clickstream/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+    prefix = "clickstream/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+
     error_output_prefix = "clickstream-errors/!{firehose:error-output-type}/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
 
     buffering_size     = 64
