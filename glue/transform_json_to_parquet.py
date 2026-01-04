@@ -15,9 +15,6 @@ logger = logging.getLogger("clickstream-etl")
 logger.setLevel(logging.INFO)
 
 # -------------------------------------------------------------------
-# Job arguments (no hardcoding)
-# Glue job must be created with job bookmarks ENABLED
-# -------------------------------------------------------------------
 args = getResolvedOptions(
     sys.argv,
     ["JOB_NAME", "SOURCE_S3", "TARGET_S3"]
